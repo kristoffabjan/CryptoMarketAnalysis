@@ -1,0 +1,1 @@
+Statistic project for Data programming lectures. Basic analysis of crypto market, escpecially from 24.08.2020 to 24.08.2021. We presented some price trends, relative price changes and correlations between btc and s&p500 and correlations between various coins.

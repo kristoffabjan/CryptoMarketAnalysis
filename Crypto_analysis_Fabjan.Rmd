@@ -1,0 +1,464 @@
+---
+title: "Crypto market analysis"
+author: "Kristof Fabjan"
+date: '2022-05-09'
+output: html_document
+bibliography: bibliography.bib
+link-citations: yes
+mainfont: Italic
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,message=F,warning=T,error=T)
+library(tidyverse)
+library(lubridate)
+library(corrr)
+library(knitr)
+options(scipen=999)
+
+#GLOBAL VARIABLES
+max_date <- "2021-08-24"
+max_date_minus1_year <- ymd(max_date) - years(1)
+df_top_50 <- read.csv("top50.csv")
+sp_raw <- read_csv("data/sp500_index.csv")
+# MAIN DF ---- entries of all top 10 coins
+top_10_coins_list <- c("Bitcoin", "Ethereum", "Polkadot", "Avalanche", 
+                       "Binance_Coin", "Cardano", "Dogecoin", "Solana",
+                       "SHIBA_INU", "XPR", "USD_Coin")
+df <- df_top_50 |>
+  filter(Currency_Name %in% top_10_coins_list )
+
+```
+
+## Introduction
+
+A cryptocurrency[@wiki] is a digital currency designed to work as a medium of exchange through a computer network that is not reliant on any central authority, such as a government or bank, to uphold or maintain it. Individual coin ownership records are stored in a digital ledger, which is a computerized database using strong cryptography to secure transaction records, to control the creation of additional coins, and to verify the transfer of coin ownership. Cryptocurrencies typically use decentralized control as opposed to a central bank digital currency (CBDC). A cryptocurrency is a tradable digital asset or digital form of money, built on blockchain technology that only exists online. Cryptocurrencies use encryption to authenticate and protect transactions, hence their name. There are currently over a thousand different cryptocurrencies in the world. Over the last few years, cryptocurrency prices have risen and then fallen.
+
+![](https://images.unsplash.com/photo-1518546305927-5a555bb7020d?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8Mnx8Y3J5cHRvY3VycmVuY3l8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60)
+
+## Problem presentation
+
+Cryptocurrencies have become one of the major assets for trading, which caused big increase in crypto market analysis. Therefore there are many various more or less accurate price predictions. They are based on various different methods. 
+In this project, we are trying to make a summary of market situation by using the historic crypto prices. To understand the matter in a broader way, we will find some other corellations and present the trends of some of the most important coins with the highest market capitalization.
+
+Since we are also interested in price prediction, we will try to find out the corellation between crypto market and stock market and correlations between trends of various cryptocurrencies in comparison to main coin, Bitcoin. 
+
+Final results will help us understand the market better, which will lead in better investing strategy. 
+
+## Data presentation
+
+```{r include=FALSE}
+top_10_coins_list <- c("Bitcoin", "Ethereum", "Polkadot", "Avalanche", 
+                       "Binance_Coin", "Cardano", "Dogecoin", "Solana",
+                       "SHIBA_INU", "XPR", "USD_Coin")
+# MAIN DF ---- entries of all top 10 coins
+df <- df_top_50 |>
+  filter(Currency_Name %in% top_10_coins_list )
+lol <- 5
+
+```
+
+In our analysis, we used few different datasets. To get data for cryptocurrencies, we used dataset of Top 50 cryptocurrencies[@cryptoData] and their histroric prices. We used the table "All_combined.csv" which has all the data. We decidet that the analysis will me made on only current top 10 cryptocurrencies. Those are **Bitcoin, Ethereum, Polkadot, Avalanche, Binance Coin, Cardano, Dogecoin, Solana, SHIBA_INU, XPR, USD_Coin**. 
+
+We filtered out those coins from initial table and got the initial dataframe that we worked on.
+
+`r df |> head(5) |> kable(caption = "Caption: First 5 entries in main dataframe")` 
+
+The initial dataframe has **`r nrow(df)` rows** and **`r ncol(df)` columns**. Columns have names Currency_Name, Date, Price, Open, High, Low, Vol, Change. Data frame entries range from 18.07.2010 to 24.08.2021. 
+
+Columns have further meaning:
+
+* **Currency_Name**: Name of Cryptocurrency, type: string,
+* **Date**: Date of measured price, type: string,
+* **Price**: Average price on certain date, type: numeric,
+* **Open**: Price at the beginning of the day, type: numeric,
+* **High**: Highest price for certain day, type: numeric,
+* **Low**: Lowest price for certain day, type: numeric,
+* **Vol**: Amount of trading in $ on certain day, type: numeric,
+* **Change**: Price change on certain day, type: numeric.
+
+We also used datased of historic values of index s&p 500[@sp500Data]. Index points are gathered between 06.05.2012 and 07.05.2022. Dataset has **`r nrow(sp_raw)` rows and `r ncol(sp_raw)` columns**. 
+
+`r sp_raw |> head(5) |> kable(caption = "Caption: First 5 entries of sp500 values")` 
+
+
+In this analysis, we will mainly analyse one year interval from 24-08-2020 to 24-08-2021. There are two reasons for that. The first is, that there was high level of activity(trading) in that time and the second is that we got the dataset of cryptocurrencies that dates go upto 24-08-2021.
+
+## Data analysis visualisation
+
+```{r include=FALSE}
+#trend of absolute price for btc and eth in last year and in all years
+#get btc and eth prices, pivot it
+btc_eth_prices_2021 <- df |> 
+  filter(ymd(Date) >= max_date_minus1_year & ymd(Date) <= max_date & Currency_Name %in% c("Ethereum", "Bitcoin")) |> 
+  select(Currency_Name, Date, Open) |> 
+  pivot_wider(names_from = Currency_Name, values_from = Open) |> 
+  mutate(Date = ymd(Date))
+
+btc_eth_prices_2021_not_pivot <- df |> 
+  filter(ymd(Date) >= max_date_minus1_year & ymd(Date) <= max_date & Currency_Name %in% c("Ethereum", "Bitcoin")) |> 
+  select(Currency_Name, Date, Open) |> 
+  mutate(Date = ymd(Date))
+
+#btc_eth_prices_2021
+
+#plot(btc_eth_prices_2021$Date,btc_eth_prices_2021$Bitcoin, type="l")
+
+#btc price 2020-2021 graph
+ggplot(btc_eth_prices_2021, aes(x = Date, y = Bitcoin, colour = "Bitcoin")) + 
+  geom_line() +
+  labs(title = "Bitcoin price from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+#eth price 2020-2021 graph
+ggplot(btc_eth_prices_2021, aes(x = Date, y = Ethereum, colour = "Etehreum")) + 
+  geom_line() +
+  labs(title = "Ethereum price from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+#combined btc and eth 2020-2021
+ggplot(btc_eth_prices_2021_not_pivot, aes(x = Date, y = Open, colour = Currency_Name)) + 
+  geom_line() +
+  labs(title = "Bitcoin and Ethereum prices from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+#btc price for last 11 years
+min_btc_date <- ymd("2010-07-18")
+btc_prices_2010_2021 <- df |> 
+  filter(ymd(Date) >= min_btc_date & ymd(Date) <= max_date & Currency_Name %in% c("Bitcoin")) |> 
+  mutate(Date=ymd(Date)) |> 
+  select(Currency_Name, Date, Open)
+
+ggplot(btc_prices_2010_2021) + 
+  geom_line(mapping=aes(x = Date, y = Open, group=1, colour = "Bitcoin")) +
+  labs(title = "Bitcoin prices from 2010-2020", x = "Date", y = "Price($)")
+```
+
+First, we will present some basic data, to grasp a better intuition and feeling about price movement of Cryptocurrencies, especially in the last year, when the data was available.
+
+### Trends of main cryptocurrencies in year 2020-2021
+
+In this section, we presented the trends of two main cryptocurrencies, Bitcoin and Ethereum, in last year. To get a better glimse of price increase, we also presented the price trend of Bitcoin from 2010 to 2021. 
+
+```{r include=TRUE}
+#btc price 2020-2021 graph
+ggplot(btc_eth_prices_2021, aes(x = Date, y = Bitcoin, colour = "Bitcoin")) + 
+  geom_line() +
+  labs(title = "Bitcoin price from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+#eth price 2020-2021 graph
+ggplot(btc_eth_prices_2021, aes(x = Date, y = Ethereum, colour = "Etehreum")) + 
+  geom_line() +
+  labs(title = "Ethereum price from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+#combined btc and eth 2020-2021
+ggplot(btc_eth_prices_2021_not_pivot, aes(x = Date, y = Open, colour = Currency_Name)) + 
+  geom_line() +
+  labs(title = "Bitcoin and Ethereum prices from 8.2020 - 8.2021", x = "Date", y = "Price($)")
+
+ggplot(btc_prices_2010_2021) + 
+  geom_line(mapping=aes(x = Date, y = Open, group=1, colour = "Bitcoin")) +
+  labs(title = "Bitcoin prices from 2010-2020", x = "Date", y = "Price($)")
+```
+
+### Average price for TOP 10 coins in 2020-2021
+
+```{r include=FALSE}
+#average price for coins in 2021
+#table and graph(not representative)
+#done
+
+#average price of each coin in 2020-8-24  ---- 2021-8-24
+avg_price_2021 <- df |> 
+  filter(ymd(Date) >= max_date_minus1_year & ymd(Date) <= ymd("2021-12-31")) |> 
+  group_by(Currency_Name) |> 
+  summarize(Avg_2021_Price =  format(mean(Open), scientific=FALSE ) ) |> 
+  mutate(Avg_2021_Price = format(round(as.double(Avg_2021_Price), 2), nsmall = 4))
+
+avg_price_2021
+#table
+kable(avg_price_2021) 
+
+#include graph optionally
+ggplot(data=avg_price_2021, aes(x= Currency_Name, y=Avg_2021_Price)) +
+  geom_bar(stat="identity", color="blue", fill="white")
+```
+
+Here we are presenting the average price of the TOP 10 coins in the past year. We picked TOP 10 coins manually from current leaderboards in 2022 according to coin market capitalization.
+
+```{r include=TRUE}
+kable(avg_price_2021) 
+```
+
+### Market volatility
+
+```{r include=FALSE}
+#volatility
+#daily and annual volatility
+#including graphs
+# done
+
+#daily standard deviation, 8.2020 -8.2021
+daily_stdev_2021 <- df |> 
+  filter(ymd(Date) >= max_date_minus1_year & ymd(Date) <= ymd("2021-12-31")) |> 
+  group_by(Currency_Name) |> 
+  summarize(Daily_stdev_2021 =  format(sd(Change..), scientific=FALSE ) ) |> 
+  mutate(Daily_stdev_2021 = as.double(Daily_stdev_2021))
+
+#daily plot
+ggplot(data=daily_stdev_2021, aes(x= Currency_Name, y=Daily_stdev_2021)) +
+  geom_bar(stat="identity", color="blue", fill="white")
+
+
+#yearly(annual) standard deviation of coins8.2020 -8.2021
+yearly_stdev_2021 <- daily_stdev_2021 |> 
+  mutate(Annual_stdev_2021 = sqrt(252)*as.double(Daily_stdev_2021))
+
+#yearly plot
+ggplot(data=yearly_stdev_2021, aes(x=Currency_Name, y=Annual_stdev_2021)) +
+  geom_bar(stat="identity", color="blue", fill="white")
+```
+
+Traders mainly focous on two strategies when investing. Some of them invest daily and some long term. To be able to get profits from daily trading, one must be able to cope with volatile markets. In this section, we analyse volatility of various TOP 10 coins in year 2020-2021. We computed daily and annual standard deviation, which tells us, how volatile the asset is. With that data, we can do a better planning on our investing, since we are able to better define our short/long term investments and risks.
+
+Next, there are two plots. First one shows daily volatility and the second one annual(yearly) volatility. From graphs, we can obvisoulsy see, that Dogecoin is the most volatile, since it is the most speculative coin in the TOP 10 coins. For contrast we can see the USDT coin, which is dependant to US dollar. Volatility of it is rather small, as expected.
+
+```{r}
+#daily plot
+ggplot(data=daily_stdev_2021, aes(x= Currency_Name, y=Daily_stdev_2021)) +
+  geom_bar(stat="identity", color="blue", fill="white") + 
+  labs(title = "Volatility of daily price chages 8.2020-8.2021", x = "Coin", y = "Stdev")
+
+#yearly plot
+ggplot(data=yearly_stdev_2021, aes(x=Currency_Name, y=Annual_stdev_2021)) +
+  geom_bar(stat="identity", color="blue", fill="white") + 
+  labs(title = "Yearly volatility of coins (8.2020-8.2021)", x = "Coin", y = "Stdev")
+```
+### rel
+
+```{r include=FALSE}
+#relative price change for coins in last year of data (24.8.2020 - 24.8.2021)
+#show table for all
+#show graph for btc eth
+#done
+
+#relative price change in past year
+# only name, date and open price
+relative_price_changes_last_year_only_prices <- df |> 
+  filter( (ymd(Date) == max_date_minus1_year | ymd(Date) == max_date) & Currency_Name != "Avalanche" ) |> 
+  select(Currency_Name, Date, Open)
+
+
+#relative price changes in last available year 
+#   pivot table to get both start and end price in each col
+relative_price_changes_last_year <- relative_price_changes_last_year_only_prices |> 
+  spread(key=Date, value=Open) |> 
+  mutate(Relative_change_percent = `2021-08-24`/`2020-08-24`*100) |> 
+  filter(!is.na(Relative_change_percent))
+  
+relative_price_changes_last_year
+
+ggplot(data=relative_price_changes_last_year, aes(x=Currency_Name, y=Relative_change_percent)) +
+  geom_bar(stat="identity", color="blue", fill="white")
+
+#relative price changes for BTC, ETH
+relative_price_changes_last_year_main_coins <- relative_price_changes_last_year_only_prices |> 
+  spread(key=Date, value=Open) |> 
+  mutate(Relative_change_percent = `2021-08-24`/`2020-08-24`*100) |> 
+  filter(!is.na(Relative_change_percent) & Currency_Name %in% c("Bitcoin", "Ethereum"))
+
+relative_price_changes_last_year_main_coins
+
+ggplot(data=relative_price_changes_last_year_main_coins, aes(x=Currency_Name, y=Relative_change_percent)) +
+  geom_bar(stat="identity", color="blue", fill="white")
+```
+
+For the last year interval(8.2020-8.2021) we also computed the relative price changes. We did that, because of very big differences in cryptocurrency prices. For example, Bitcoin was on some point in 2021 worth almost 70.000\$ while Shiba Inu was worth less than 0.001\$. Bellow, we can se the yearly price changes on the date 24.08.2021, relative to coin price in the beginning of the observation time interval(24.08.2020).
+
+As we can see, it was increadibly bullish year, escpecially for Dogecoin which gained more than 80times of its initial value from the beginning of the observable time interval. Since some less know coins gained so much, we also made separate graph, only for BTC and ETH, where we see better, that they also had significan gain of 400%(BTC) and 800%(ETH).
+
+```{r include=TRUE}
+ggplot(data=relative_price_changes_last_year, aes(x=Currency_Name, y=Relative_change_percent)) +
+  geom_bar(stat="identity", color="blue", fill="white") + 
+  labs(title = "Relative yearly price change of TOP 10 coins(24.8.2020-24.8.2021)", x = "Coin", y = "Change(%)")
+
+ggplot(data=relative_price_changes_last_year_main_coins, aes(x=Currency_Name, y=Relative_change_percent)) +
+  geom_bar(stat="identity", color="blue", fill="white") +
+  labs(title = "Relative yearly price change of BTC and ETH(24.8.2020-24.8.2021)", x = "Coin", y = "Change(%)")
+```
+
+
+### Bitcoin S&P 500 correlation
+
+```{r include=FALSE}
+#----- start btc sp500 correlation
+#correlation between btc and s&p500 in last year and in last 10years
+#tables and graphs
+#done 
+
+#sp500 data
+sp_raw <- read_csv("data/sp500_index.csv")
+sp_raw |> head()
+
+sp <- sp_raw |> 
+  filter(ymd(Date) >= max_date_minus1_year & ymd(Date) <= max_date) 
+
+#btc last year
+btc <- df |> 
+  filter(Currency_Name == "Bitcoin" & ymd(Date) >= max_date_minus1_year & ymd(Date) <= max_date) |> 
+  mutate(Date = as.Date(Date, "%Y-%m-%d")) |> 
+  select(Currency_Name, Date, Open)
+  
+#normal join
+sp |> 
+  inner_join(btc)
+  
+#pivot table style date, sp, btc
+sp_btc <- sp |> 
+  inner_join(btc) |> 
+  rename(Bitcoin=Open) |> 
+  select(Date, `S&P500`, Bitcoin)
+  
+sp_btc
+str(sp_btc)
+
+sp_btc_correlation_ommit_na <- sp_btc |> 
+  select(`S&P500`, Bitcoin) |> 
+  correlate() |> 
+  replace_na(list( `S&P500` = 1, Bitcoin = 1))
+
+sp_btc_correlation <- sp_btc |> 
+  select(`S&P500`, Bitcoin) |> 
+  correlate()
+
+sp_btc_correlation
+
+rplot(
+  sp_btc_correlation,
+  legend = TRUE,
+  shape = 16,
+  colours = c("blue", "red"),
+  print_cor = TRUE,
+)
+
+#--correlation btc - sp500 over last 10 years
+  #interval of analysis time 7.5.2012 - 24.8.2021
+sp_min_date <-ymd("2012-05-07 ")
+btc_max_date <- ymd(max_date)
+
+#sp values from 2012
+sp_2012_2021 <- sp_raw |> 
+  filter(ymd(Date) >= sp_min_date & ymd(Date) <= btc_max_date) 
+
+#btc last year
+btc_2012_2021 <- df |> 
+  filter(Currency_Name == "Bitcoin" & ymd(Date) >= sp_min_date & ymd(Date) <= btc_max_date) |> 
+  mutate(Date = as.Date(Date, "%Y-%m-%d")) |> 
+  select(Currency_Name, Date, Open)
+
+#join and pivot btc and sp500 for last 10 years
+sp_btc_2012_2021 <- sp_2012_2021 |> 
+  inner_join(btc_2012_2021) |> 
+  rename(Bitcoin=Open) |> 
+  select(Date, `S&P500`, Bitcoin)
+
+sp_btc_correlation_2012_2021 <- sp_btc_2012_2021 |> 
+  select(`S&P500`, Bitcoin) |> 
+  correlate()
+
+sp_btc_correlation_2012_2021
+
+rplot(
+  sp_btc_correlation_2012_2021,
+  legend = TRUE,
+  shape = 16,
+  colours = c("white", "black"),
+  print_cor = TRUE,
+)
+```
+
+In this reasearch, one of the most interesting things to find out, was the correlation between crypto and stock market. Since crypto market is less predictable and more speculative that stock market, I(and i guess many others) always wondered, what crypto market depends on. To find this out, we gathered S&P 500 index data and compared it with Bitcoin and tried to find any correlation. We decided to compared those two on two intervals. First is one year long(24.08.2020-24.08.2022) and the second one is 10years long. We picked Pearson correlation and we find out, that there exist significant correlation between between stock and crypto market. We computed the Pearson correlation of 0.72 for last year and even higher, 0.824 correlation score for 10year interval(2012-2021). That means that crypto market often depends on stock market and events there. Bellow, we can see the correlation charts.
+
+First, there is the **correlation of the past year of available data(8.2020-8.2021).**
+
+```{r include=TRUE}
+rplot(
+  sp_btc_correlation,
+  legend = TRUE,
+  shape = 16,
+  colours = c("blue", "red"),
+  print_cor = TRUE,
+)
+```
+And secondly, the **correlation over last 10 years.**
+```{r include=TRUE}
+rplot(
+  sp_btc_correlation_2012_2021,
+  legend = TRUE,
+  shape = 16,
+  colours = c("white", "black"),
+  print_cor = TRUE,
+)
+```
+
+### Correlation between cryptocurrencies
+```{r include=FALSE}
+#correlation between various coins
+
+#------ start btc, eth, binance, cardano correlation
+correlation_coins <- c("Bitcoin", "Ethereum", "Cardano", "Binance_Coin")
+
+corr_coins_pivot <- df |> 
+  filter(Currency_Name %in% correlation_coins & ymd(Date) >= max_date_minus1_year & ymd(Date) <= max_date) |> 
+  mutate(Date = as.Date(Date, "%Y-%m-%d")) |> 
+  select(Currency_Name, Date, Open) |>
+  pivot_wider(names_from = Currency_Name , values_from =  Open)
+
+coins_correlations <- corr_coins_pivot |> 
+  select(Binance_Coin, Bitcoin, Ethereum, Cardano) |> 
+  correlate()
+
+coins_correlations
+
+rplot(
+  coins_correlations,
+  legend = TRUE,
+  shape = 16,
+  colours = c("white", "black"),
+  print_cor = FALSE,
+)
+
+
+#------ end btc, eth, binance, cardano correlation
+```
+
+
+As we saw, we found out, that there is significant correlation between crypto and stock market, where stock market is kind of a general trend setter for crypto market. Simply said, if economy is blooming, crypto market is also increasing. Similar patterns are also between cryptocurrencies, where many coins depend on Bitcoin or follow the Bitcoin trend on some degree.
+We performed again the Pearson correlation between Bitcoin, Ethereum, Binance and Cardano coins. Results can be found bellow. 
+
+
+```{r include=TRUE}
+rplot(
+  coins_correlations,
+  legend = TRUE,
+  shape = 16,
+  colours = c("white", "black"),
+  print_cor = FALSE,
+)
+
+```
+On the diagram above, we can see some correlations, which make sense, especially for crypto experts. It can be seen, that there is the biggest correlation in price trends between Ethereum, Cardano and Binance. That is interesting, because those 3 coins also have very similar tehnology and design. The smallest correlation is between Bitcoin and Cardano, which is understandable, since they have quite different approach and technologies. More accurate values of correlations can be seen bellow in the table. 
+
+
+
+```{r include=TRUE}
+kable(coins_correlations, caption = "Coin correlations 2020-2021(Pearson)", col.names = c("Coin", "Binance", "Bitcoin", "ETH", "Cardano" ))
+```
+
+
+
+## Conclusion 
+
+In this project, we analysed the crypto market, escpecially in its most bullish time interval, from 24.08.2020 to 24.08.2021. As small crypto investor, I came up with various interesting facts and statistics. It was especially interesting, to compute correlations between crypto and stock market and also correlation between various cryptocurrencies. Additionally we also computed volatility of coins and present some price trends. 
+
+## References
+
+
+
